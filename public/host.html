@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>FFF Host</title>
+
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+
+<body>
+<div class="container">
+
+<h1>Fastest Finger First – Host</h1>
+
+<h2 id="timer">Timer: 30</h2>
+
+<!-- grade selection -->
+<h3>Select Grade</h3>
+<select id="grade">
+  <option value="">Select Grade</option>
+  <option value="grade-1-2">Grade 1–2</option>
+  <option value="grade-3-4">Grade 3–4</option>
+  <option value="grade-5-6">Grade 5–6</option>
+  <option value="grade-7-9">Grade 7–9</option>
+</select>
+
+<br><br>
+
+<button onclick="loadQuestions()">LOAD QUESTIONS</button>
+<button onclick="startQuestion()">START / NEXT QUESTION</button>
+
+<h2>Current Question</h2>
+<div id="currentQ"></div>
+
+<h2>Result</h2>
+<div id="result"></div>
+
+<h2>Players</h2>
+<div id="plist"></div>
+
+
+<script>
+const socket = io("http://localhost:3000");
+
+let questions = [];
+let index = 0;
+
+// 👉 load from WORDPRESS API
+function loadQuestions(){
+
+    const grade = document.getElementById("grade").value;
+
+    if(!grade){
+        alert("Select grade first");
+        return;
+    }
+
+    fetch(`https://fvacentre.param.club/wp-json/wp/v2/quiz_question?grade=${grade}&per_page=100`)
+    .then(r => r.json())
+    .then(data => {
+
+        questions = data.map(q => ({
+            text: q.meta.qq_question || q.title.rendered,
+            options: {
+                A: q.meta.qq_a,
+                B: q.meta.qq_b,
+                C: q.meta.qq_c,
+                D: q.meta.qq_d
+            },
+            correct: (q.meta.qq_correct || "").toUpperCase()
+        }));
+
+        alert("Loaded " + questions.length + " questions");
+        index = 0;
+    });
+}
+
+
+// 👉 send question to players
+function startQuestion(){
+
+    if(questions.length === 0){
+        alert("Load questions first");
+        return;
+    }
+
+    if(index >= questions.length){
+        alert("No more questions");
+        return;
+    }
+
+    const q = questions[index];
+    index++;
+
+    document.getElementById("currentQ").innerHTML =
+        "<b>" + q.text + "</b><br>" +
+        "A: " + q.options.A + "<br>" +
+        "B: " + q.options.B + "<br>" +
+        "C: " + q.options.C + "<br>" +
+        "D: " + q.options.D;
+
+    socket.emit("host_question", q);
+}
+
+
+// 👉 server timer
+socket.on("timer_start", data => {
+
+    let time = data.seconds;
+    const label = document.getElementById("timer");
+
+    const t = setInterval(() => {
+        label.innerText = "Timer: " + time;
+        time--;
+        if(time < 0) clearInterval(t);
+    }, 1000);
+
+});
+
+
+// 👉 show winner
+socket.on("result", data => {
+    document.getElementById("result").innerHTML =
+        "<b>Winner:</b> " + data.winner +
+        "<br><b>Correct:</b> " + data.correct;
+});
+
+
+// 👉 live players
+socket.on("players_update", players => {
+    let html = "";
+    Object.values(players).forEach(p => {
+        html += p.name ;
+    });
+    document.getElementById("plist").innerHTML = html;
+});
+
+</script>
+
+</div>
+</body>
+</html>

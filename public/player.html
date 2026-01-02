@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>FFF Player</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+
+<body>
+<div class="container">
+
+<h1>Player</h1>
+
+<h2 id="timer">Timer: 0</h2>
+
+<input id="name" placeholder="Enter your name">
+<button onclick="join()">Join</button>
+
+<h2 id="question"></h2>
+<div id="options"></div>
+
+<p id="status"></p>
+
+<script>
+const socket = io("http://localhost:3000");
+
+function join() {
+    socket.emit("join_player", document.getElementById("name").value);
+    document.getElementById("status").innerText = "Waiting for question...";
+}
+
+socket.on("new_question", q => {
+
+    document.getElementById("question").innerText = q.text;
+
+    let html = "";
+    for (let key in q.options) {
+        html += `<button onclick="answer('${key}')">${key}: ${q.options[key]}</button><br>`;
+    }
+    document.getElementById("options").innerHTML = html;
+    document.getElementById("status").innerText = "";
+});
+
+socket.on("timer_start", data => {
+    let t = data.seconds;
+
+    const label = document.getElementById("timer");
+
+    const interval = setInterval(() => {
+        label.innerText = "Timer: " + t;
+        t--;
+
+        if (t < 0) clearInterval(interval);
+    }, 1000);
+});
+
+function answer(option) {
+    socket.emit("player_answer", { answer: option });
+    document.getElementById("status").innerText = "Answer locked!";
+}
+</script>
+</div>
+</body>
+</html>
