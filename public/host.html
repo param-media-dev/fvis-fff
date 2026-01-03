@@ -126,11 +126,10 @@ socket.on("result", data => {
 });
 
 
-// 👉 live players
 socket.on("players_update", players => {
     let html = "";
     Object.values(players).forEach(p => {
-        html += p.name ;
+        html += p.name + "<br>";
     });
     document.getElementById("plist").innerHTML = html;
 });
